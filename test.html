@@ -1,0 +1,22 @@
+<script>
+  fetch('asset_data.json')
+    .then(response => response.json())
+    .then(data => {
+      const tbody = document.querySelector("tbody");
+      tbody.innerHTML = ""; // Clear existing content
+
+      data.forEach((asset, i) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${asset.asset}</td>
+          <td><input type="number" step="0.01" name="return${i}" value="${asset.return}"></td>
+          <td><input type="number" step="0.01" name="vol${i}" value="${asset.vol}"></td>
+          <td><input type="number" step="0.01" name="weight${i}" value="${asset.weight}"></td>
+        `;
+        tbody.appendChild(row);
+      });
+    })
+    .catch(err => {
+      console.error("Error loading data:", err);
+    });
+</script>
