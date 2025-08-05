@@ -1,0 +1,7 @@
+[
+  { "asset": "Asset 1", "return": 5.2, "vol": 10.1, "weight": 25 },
+  { "asset": "Asset 2", "return": 6.4, "vol": 12.3, "weight": 25 },
+  { "asset": "Asset 3", "return": 4.9, "vol": 9.8, "weight": 20 },
+  { "asset": "Asset 4", "return": 7.1, "vol": 13.0, "weight": 15 },
+  { "asset": "Asset 5", "return": 5.8, "vol": 11.2, "weight": 15 }
+]
