@@ -1,409 +1,699 @@
-import React, { useMemo, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, BarChart, Bar } from "recharts";
-import { RotateCcw, Dice5, Play, Undo2 } from "lucide-react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>10‑Year Investment Game</title>
+<style>
+  :root {
+    --bg: #0f1221;
+    --panel: #171a2b;
+    --panel-2: #1f2340;
+    --text: #e7e9ee;
+    --muted: #b9bed1;
+    --accent: #7c9cff;
+    --accent-2: #6ce0c3;
+    --danger: #ff7685;
+    --warning: #ffd36c;
+    --good: #88f087;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+    background: radial-gradient(1200px 800px at 80% -20%, #2a2f57 0%, var(--bg) 40%) fixed;
+    color: var(--text);
+    line-height: 1.45;
+  }
+  header {
+    padding: 28px 16px 8px;
+    text-align: center;
+  }
+  header h1 {
+    margin: 0 0 8px;
+    font-size: clamp(22px, 3.8vw, 36px);
+    letter-spacing: 0.3px;
+  }
+  header p { margin: 0; color: var(--muted); }
+  .container {
+    max-width: 1100px;
+    margin: 18px auto 80px;
+    padding: 0 16px;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 980px) {
+    .container { grid-template-columns: 1fr; }
+  }
+  .card {
+    background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+    border: 1px solid #2d3155;
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+  }
+  .card h2 {
+    margin: 6px 6px 12px;
+    font-size: 18px;
+    letter-spacing: .2px;
+  }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .field { margin: 6px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  input[type="number"], input[type="text"] {
+    width: 100%;
+    background: #0f1221;
+    color: var(--text);
+    border: 1px solid #343a66;
+    border-radius: 10px;
+    padding: 10px 12px;
+    outline: none;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 12px; border-radius: 999px;
+    background: #121631; color: var(--text); border: 1px solid #2b2f57;
+    cursor: pointer; user-select: none;
+  }
+  .pill:hover { border-color: #3b4070; }
+  .btn {
+    background: linear-gradient(180deg, #4a66ff, #2f48d9);
+    border: none; color: white; padding: 12px 16px; border-radius: 12px;
+    font-weight: 600; cursor: pointer; box-shadow: 0 6px 18px rgba(76,99,255,.35);
+  }
+  .btn:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; }
+  .btn.secondary {
+    background: #192044; border: 1px solid #3a4080; box-shadow: none;
+  }
+  .btn.danger {
+    background: linear-gradient(180deg, #ff6b7a, #da3f51);
+    box-shadow: 0 6px 18px rgba(255,107,122,.35);
+  }
+  .hint { color: var(--muted); font-size: 12px; }
+  .kpi {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 8px 6px 2px;
+  }
+  @media (max-width: 680px) { .kpi { grid-template-columns: 1fr 1fr; } }
+  .kpi .box {
+    background: #111633; border: 1px solid #2c325f; border-radius: 12px; padding: 10px;
+  }
+  .kpi .big { font-size: 18px; font-weight: 700; }
+  .good { color: var(--good); } .bad { color: var(--danger); } .warn { color: var(--warning); }
+  table {
+    width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;
+  }
+  th, td {
+    border-bottom: 1px solid #2c315c; padding: 8px 6px; text-align: right;
+  }
+  th { color: var(--muted); font-weight: 600; }
+  td.label, th.label { text-align: left; }
+  canvas { width: 100%; height: 260px; border-radius: 10px; background: #0e1330; border: 1px solid #2b2f57; }
+  .alloc-row { display: grid; grid-template-columns: 70px 1fr 70px; align-items: center; gap: 10px; margin: 8px 6px; }
+  .preset-wrap { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 6px; }
+  .footer-note { margin: 8px 6px 0; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+  <header>
+    <h1>10‑Year Investment Game</h1>
+    <p>Each year, choose your contribution and allocation. Markets roll the dice; compounding does the magic.</p>
+  </header>
 
-// ---------- Utilities ----------
-// Lightweight deterministic PRNG (Mulberry32)
-function mulberry32(seed: number) {
-  return function () {
-    let t = (seed += 0x6d2b79f5);
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  <div class="container">
+    <!-- LEFT: Controls + Table -->
+    <section class="card">
+      <h2>Year <span id="yearDisplay">1</span> / 10 — Your Move</h2>
+
+      <div class="row">
+        <div class="field">
+          <label for="startBalance">Starting Balance</label>
+          <input id="startBalance" type="number" value="10000" min="0" step="100" />
+          <div class="hint">Only used before Year 1.</div>
+        </div>
+        <div class="field">
+          <label for="seed">Random Seed (optional, for reproducibility)</label>
+          <input id="seed" type="text" placeholder="e.g., 2025-08-12" />
+          <div class="hint">Set before Year 1 to replay scenarios.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="contribution">Your Contribution This Year</label>
+          <input id="contribution" type="number" value="5000" min="0" step="100" />
+        </div>
+        <div class="field">
+          <label>Quick Presets</label>
+          <div class="preset-wrap">
+            <button class="pill" data-preset="cautious">🛡️ Cautious 70/25/5</button>
+            <button class="pill" data-preset="balanced">⚖️ Balanced 40/50/10</button>
+            <button class="pill" data-preset="growth">🚀 Growth 10/60/30</button>
+            <button class="pill" data-preset="allStocks">📈 0/20/80</button>
+            <button class="pill" data-preset="allBonds">💵 0/90/10</button>
+            <button class="pill" data-preset="allCash">🏦 100/0/0</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="alloc-row">
+        <div>Cash</div>
+        <input id="allocCash" type="range" min="0" max="100" value="20" />
+        <div><span id="pctCash">20</span>%</div>
+      </div>
+      <div class="alloc-row">
+        <div>Bonds</div>
+        <input id="allocBonds" type="range" min="0" max="100" value="50" />
+        <div><span id="pctBonds">50</span>%</div>
+      </div>
+      <div class="alloc-row">
+        <div>Stocks</div>
+        <input id="allocStocks" type="range" min="0" max="100" value="30" />
+        <div><span id="pctStocks">30</span>%</div>
+      </div>
+      <div class="preset-wrap" style="margin-top:2px">
+        <span class="hint">Allocations must sum to 100%. Use “Normalize” to auto-fix.</span>
+        <button class="pill" id="normalizeBtn">🧮 Normalize</button>
+        <button class="pill" id="rebalanceBtn">🔁 Rebalance to Last Year</button>
+      </div>
+
+      <div class="row" style="margin-top:10px">
+        <div class="field">
+          <button id="commitBtn" class="btn">Lock In Year ➜</button>
+        </div>
+        <div class="field" style="display:flex; gap:8px; justify-content:flex-end">
+          <button id="undoBtn" class="btn secondary">↩ Undo Year</button>
+          <button id="resetBtn" class="btn danger">⟲ New Game</button>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="box">
+          <div class="hint">Portfolio Value</div>
+          <div class="big" id="kpiValue">$10,000</div>
+        </div>
+        <div class="box">
+          <div class="hint">Total Contrib.</div>
+          <div class="big" id="kpiContrib">$0</div>
+        </div>
+        <div class="box">
+          <div class="hint">This Year Return</div>
+          <div class="big" id="kpiYearRet">—</div>
+        </div>
+        <div class="box">
+          <div class="hint">CAGR (so far)</div>
+          <div class="big" id="kpiCAGR">—</div>
+        </div>
+      </div>
+
+      <table id="logTable">
+        <thead>
+          <tr>
+            <th class="label">Year</th>
+            <th>Contribution</th>
+            <th>Cash%/Bonds%/Stocks%</th>
+            <th>Market: C/B/S</th>
+            <th>Weighted Return</th>
+            <th>End Balance</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="footer-note">
+        <strong>Model:</strong> Returns are drawn annually (normal dist.): Cash μ=2% σ=1%, Bonds μ=4% σ=5%, Stocks μ=8% σ=15%.
+        Your allocation applies to the entire portfolio each year (i.e., you rebalance). Contribution is added before return.
+      </div>
+    </section>
+
+    <!-- RIGHT: Chart + Summary -->
+    <section class="card">
+      <h2>Portfolio Over Time</h2>
+      <canvas id="chart" width="900" height="260" aria-label="Portfolio value chart"></canvas>
+
+      <h2 style="margin-top:16px">Final Summary (after Year 10)</h2>
+      <div class="kpi">
+        <div class="box">
+          <div class="hint">Final Value</div>
+          <div class="big" id="finalValue">—</div>
+        </div>
+        <div class="box">
+          <div class="hint">Net Gain</div>
+          <div class="big" id="finalGain">—</div>
+        </div>
+        <div class="box">
+          <div class="hint">Total Return</div>
+          <div class="big" id="finalTR">—</div>
+        </div>
+        <div class="box">
+          <div class="hint">10‑yr CAGR</div>
+          <div class="big" id="finalCAGR">—</div>
+        </div>
+      </div>
+      <div class="footer-note" id="finalNotes"></div>
+    </section>
+  </div>
+
+<script>
+/* ---------- Utilities (seeded RNG + normal draws + currency) ---------- */
+function mulberry32(a) {
+  // Tiny fast PRNG; deterministic per-seed.
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+}
+function hashStringToInt(str) {
+  let h = 2166136261 >>> 0;
+  for (let i=0; i<str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function makeNormal(rng) {
+  // Box-Muller transform
+  let spare = null;
+  return function(mean=0, sd=1) {
+    if (spare !== null) { const z = spare; spare = null; return mean + sd * z; }
+    let u=0, v=0, s=0;
+    do { u = rng()*2-1; v = rng()*2-1; s = u*u + v*v; } while (s===0 || s>=1);
+    const mul = Math.sqrt(-2 * Math.log(s) / s);
+    spare = v * mul;
+    return mean + sd * (u * mul);
+  }
+}
+const fmt = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+const pct = (x) => (x>=0?'+':'') + (x*100).toFixed(2) + '%';
+
+/* ---------- State ---------- */
+let state = {
+  year: 1,
+  startBalance: 10000,
+  value: 10000,
+  contribTotal: 0,
+  history: [], // per year: {year, contribution, alloc:{cash,bonds,stocks}, market:{cash,bonds,stocks}, weightedRet, endBalance}
+  seedStr: '',
+  rng: Math.random,
+  normal: null,
+  lastAlloc: { cash:20, bonds:50, stocks:30 },
+};
+
+const params = {
+  cash: { mean: 0.02, sd: 0.01 },
+  bonds: { mean: 0.04, sd: 0.05 },
+  stocks: { mean: 0.08, sd: 0.15 },
+};
+
+/* ---------- DOM ---------- */
+const dom = {
+  yearDisplay: document.getElementById('yearDisplay'),
+  startBalance: document.getElementById('startBalance'),
+  seed: document.getElementById('seed'),
+  contribution: document.getElementById('contribution'),
+  allocCash: document.getElementById('allocCash'),
+  allocBonds: document.getElementById('allocBonds'),
+  allocStocks: document.getElementById('allocStocks'),
+  pctCash: document.getElementById('pctCash'),
+  pctBonds: document.getElementById('pctBonds'),
+  pctStocks: document.getElementById('pctStocks'),
+  normalizeBtn: document.getElementById('normalizeBtn'),
+  rebalanceBtn: document.getElementById('rebalanceBtn'),
+  commitBtn: document.getElementById('commitBtn'),
+  undoBtn: document.getElementById('undoBtn'),
+  resetBtn: document.getElementById('resetBtn'),
+  kpiValue: document.getElementById('kpiValue'),
+  kpiContrib: document.getElementById('kpiContrib'),
+  kpiYearRet: document.getElementById('kpiYearRet'),
+  kpiCAGR: document.getElementById('kpiCAGR'),
+  logTable: document.getElementById('logTable').querySelector('tbody'),
+  chart: document.getElementById('chart'),
+  finalValue: document.getElementById('finalValue'),
+  finalGain: document.getElementById('finalGain'),
+  finalTR: document.getElementById('finalTR'),
+  finalCAGR: document.getElementById('finalCAGR'),
+  finalNotes: document.getElementById('finalNotes'),
+};
+
+/* ---------- Init ---------- */
+function init() {
+  // set seed + RNG
+  if (dom.seed.value.trim()) {
+    state.seedStr = dom.seed.value.trim();
+  } else {
+    state.seedStr = 'seed-' + Date.now();
+  }
+  state.rng = mulberry32(hashStringToInt(state.seedStr));
+  state.normal = makeNormal(state.rng);
+
+  // start balance
+  let sb = Number(dom.startBalance.value);
+  if (!isFinite(sb) || sb < 0) sb = 0;
+  state.startBalance = state.value = Math.round(sb);
+
+  // reset progression
+  state.year = 1;
+  state.contribTotal = 0;
+  state.history = [];
+  dom.yearDisplay.textContent = state.year.toString();
+
+  // UI setup
+  dom.kpiValue.textContent = fmt.format(state.value);
+  dom.kpiContrib.textContent = fmt.format(0);
+  dom.kpiYearRet.textContent = '—';
+  dom.kpiCAGR.textContent = '—';
+  dom.logTable.innerHTML = '';
+  clearFinal();
+
+  // set lastAlloc from sliders
+  state.lastAlloc = currentAlloc();
+  drawChart();
+  setEditable(true);
+}
+function clearFinal() {
+  dom.finalValue.textContent = '—';
+  dom.finalGain.textContent = '—';
+  dom.finalTR.textContent = '—';
+  dom.finalCAGR.textContent = '—';
+  dom.finalNotes.textContent = '';
+}
+
+/* ---------- Helpers ---------- */
+function currentAlloc() {
+  return {
+    cash: Number(dom.allocCash.value),
+    bonds: Number(dom.allocBonds.value),
+    stocks: Number(dom.allocStocks.value),
   };
 }
-
-// Box–Muller transform to draw from N(0,1)
-function randn(rng: () => number) {
-  let u = 0, v = 0;
-  while (u === 0) u = rng();
-  while (v === 0) v = rng();
-  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+function setAlloc(a) {
+  dom.allocCash.value = a.cash;
+  dom.allocBonds.value = a.bonds;
+  dom.allocStocks.value = a.stocks;
+  updateAllocLabels();
+}
+function updateAllocLabels() {
+  dom.pctCash.textContent = Number(dom.allocCash.value);
+  dom.pctBonds.textContent = Number(dom.allocBonds.value);
+  dom.pctStocks.textContent = Number(dom.allocStocks.value);
+}
+function normalizeAlloc() {
+  let a = currentAlloc();
+  let sum = a.cash + a.bonds + a.stocks;
+  if (sum === 0) { a = { cash: 100, bonds: 0, stocks: 0 }; }
+  else {
+    a.cash = Math.round(100 * a.cash / sum);
+    a.bonds = Math.round(100 * a.bonds / sum);
+    a.stocks = 100 - a.cash - a.bonds; // ensure 100%
+  }
+  setAlloc(a);
+}
+function fmtAlloc(a){ return `${a.cash}% / ${a.bonds}% / ${a.stocks}%`; }
+function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
+function computeCAGR(start, end, years){
+  if (years <= 0 || start <= 0) return null;
+  return Math.pow(end / start, 1/years) - 1;
+}
+function setEditable(enabled) {
+  const lockBeforeY1 = state.year > 1;
+  dom.startBalance.disabled = lockBeforeY1;
+  dom.seed.disabled = lockBeforeY1;
 }
 
-function normalDraw(mean: number, stdev: number, rng: () => number) {
-  return mean + stdev * randn(rng);
-}
-
-function clamp(x: number, lo: number, hi: number) {
-  return Math.min(hi, Math.max(lo, x));
-}
-
-// Formatters
-const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
-const money = (x: number) =>
-  x.toLocaleString("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 });
-
-// ---------- Types ----------
-interface Asset {
-  key: string;
-  name: string;
-  mean: number; // annual mean return (decimal)
-  stdev: number; // annual volatility (decimal)
-}
-
-interface YearDecision {
-  weights: Record<string, number>; // weights by asset key, sum to 1
-  realisedAssetReturns?: Record<string, number>; // filled after locking year
-  portfolioReturn?: number; // filled after locking year
-}
-
-// ---------- Default assets ----------
-const defaultAssets: Asset[] = [
-  { key: "cash", name: "Cash", mean: 0.02, stdev: 0.01 },
-  { key: "bonds", name: "Bonds", mean: 0.04, stdev: 0.06 },
-  { key: "equities", name: "Equities", mean: 0.07, stdev: 0.18 },
-  { key: "alts", name: "Alternatives", mean: 0.06, stdev: 0.12 },
-];
-
-export default function TenYearInvestmentGame() {
-  // Settings
-  const [assets, setAssets] = useState<Asset[]>(defaultAssets);
-  const [startingCapital, setStartingCapital] = useState<number>(100_000);
-  const [annualContribution, setAnnualContribution] = useState<number>(10_000);
-  const [seed, setSeed] = useState<number>(2025);
-  const [year, setYear] = useState<number>(1); // 1..10
-  const [history, setHistory] = useState<YearDecision[]>(() => [
-    { weights: Object.fromEntries(assets.map((a) => [a.key, 0.25])) },
-  ]);
-  const [portfolioValues, setPortfolioValues] = useState<number[]>([startingCapital]);
-
-  // Derived
-  const rng = useMemo(() => mulberry32(seed), [seed]);
-  const currentDecision = history[year - 1];
-
-  // Reset when settings change materially (manual controls handle their own state)
-  function hardReset(newSeed?: number) {
-    const s = newSeed ?? seed;
-    setSeed(s);
-    setYear(1);
-    setHistory([{ weights: Object.fromEntries(assets.map((a) => [a.key, 0.25])) }]);
-    setPortfolioValues([startingCapital]);
+/* ---------- Simulation Logic ---------- */
+function drawYear() {
+  // Read inputs
+  const contrib = Math.max(0, Math.round(Number(dom.contribution.value) || 0));
+  let alloc = currentAlloc();
+  const sum = alloc.cash + alloc.bonds + alloc.stocks;
+  if (sum !== 100) {
+    alert('Allocations must sum to 100%. Click “Normalize” or adjust sliders.');
+    return;
   }
 
-  function setAssetParam(idx: number, key: "mean" | "stdev", value: number) {
-    const next = [...assets];
-    // Guard rails
-    if (key === "stdev") value = clamp(value, 0, 0.6);
-    if (key === "mean") value = clamp(value, -0.2, 0.2);
-    next[idx] = { ...next[idx], [key]: value } as Asset;
-    setAssets(next);
+  // Generate market returns for each asset
+  const rCash = state.normal(params.cash.mean, params.cash.sd);
+  const rBonds = state.normal(params.bonds.mean, params.bonds.sd);
+  const rStocks = state.normal(params.stocks.mean, params.stocks.sd);
+
+  // Weighted return (convert alloc to weights)
+  const w = { cash: alloc.cash/100, bonds: alloc.bonds/100, stocks: alloc.stocks/100 };
+  const weighted = rCash*w.cash + rBonds*w.bonds + rStocks*w.stocks;
+
+  // Apply contribution then return
+  const before = state.value + contrib;
+  const after = Math.max(0, before * (1 + weighted));
+
+  // Update state
+  state.contribTotal += contrib;
+  state.value = Math.round(after);
+  state.history.push({
+    year: state.year,
+    contribution: contrib,
+    alloc: { ...alloc },
+    market: {
+      cash: rCash, bonds: rBonds, stocks: rStocks
+    },
+    weightedRet: weighted,
+    endBalance: state.value
+  });
+  state.lastAlloc = { ...alloc };
+
+  // Update UI table
+  addRow(state.history[state.history.length-1]);
+
+  // KPIs
+  dom.kpiValue.textContent = fmt.format(state.value);
+  dom.kpiContrib.textContent = fmt.format(state.contribTotal);
+  dom.kpiYearRet.textContent = (weighted >= 0 ? '📈 ' : '📉 ') + pct(weighted);
+
+  const cagr = computeCAGR(state.startBalance + state.contribTotal, state.value, state.year);
+  dom.kpiCAGR.textContent = (cagr===null? '—' : pct(cagr));
+
+  // Chart + next year
+  drawChart();
+  state.year++;
+  dom.yearDisplay.textContent = Math.min(10,state.year).toString();
+
+  // End game at 10
+  if (state.history.length >= 10) {
+    finalize();
+  }
+}
+function addRow(entry) {
+  const tr = document.createElement('tr');
+  const mkt = `${pct(entry.market.cash)} / ${pct(entry.market.bonds)} / ${pct(entry.market.stocks)}`;
+  tr.innerHTML = `
+    <td class="label">${entry.year}</td>
+    <td>${fmt.format(entry.contribution)}</td>
+    <td>${fmtAlloc(entry.alloc)}</td>
+    <td>${mkt}</td>
+    <td class="${entry.weightedRet>=0?'good':'bad'}">${pct(entry.weightedRet)}</td>
+    <td>${fmt.format(entry.endBalance)}</td>
+  `;
+  dom.logTable.appendChild(tr);
+}
+function finalize() {
+  // Lock progression
+  dom.commitBtn.disabled = true;
+  dom.rebalanceBtn.disabled = true;
+  dom.normalizeBtn.disabled = true;
+
+  const finalValue = state.value;
+  const totalContrib = state.contribTotal;
+  const invested = state.startBalance + totalContrib;
+  const gain = finalValue - invested;
+  const totalReturn = invested > 0 ? (finalValue / invested - 1) : null;
+  const cagr = computeCAGR(state.startBalance, finalValue, 10); // classical CAGR on starting principal only
+  const cagrTotal = computeCAGR(invested, finalValue, 10); // more “IRR-like” proxy (simplified)
+
+  dom.finalValue.textContent = fmt.format(finalValue);
+  dom.finalGain.textContent = (gain>=0? '📈 ' : '📉 ') + fmt.format(gain);
+  dom.finalTR.textContent = totalReturn===null? '—' : pct(totalReturn);
+  dom.finalCAGR.textContent = cagrTotal===null? '—' : pct(cagrTotal);
+
+  // Notes: best/worst year
+  let best = null, worst = null;
+  state.history.forEach(h => {
+    if (!best || h.weightedRet > best.weightedRet) best = h;
+    if (!worst || h.weightedRet < worst.weightedRet) worst = h;
+  });
+  dom.finalNotes.textContent =
+    `Best year: Y${best.year} (${(best.weightedRet*100).toFixed(2)}%). ` +
+    `Worst year: Y${worst.year} (${(worst.weightedRet*100).toFixed(2)}%). Seed: “${state.seedStr}”.`;
+
+  // Make sure year display shows 10
+  dom.yearDisplay.textContent = '10';
+}
+function undoYear() {
+  if (state.history.length === 0) return;
+  const last = state.history.pop();
+  state.year = last.year;
+  state.value = (state.history.length ? state.history[state.history.length-1].endBalance : state.startBalance);
+  state.contribTotal -= last.contribution;
+  // remove last row
+  dom.logTable.removeChild(dom.logTable.lastElementChild);
+  // update KPIs
+  dom.kpiValue.textContent = fmt.format(state.value);
+  dom.kpiContrib.textContent = fmt.format(state.contribTotal);
+  dom.kpiYearRet.textContent = '—';
+  const cagr = computeCAGR(state.startBalance + state.contribTotal, state.value, state.year-1);
+  dom.kpiCAGR.textContent = (cagr===null? '—' : pct(cagr));
+  // re-enable buttons if needed
+  dom.commitBtn.disabled = false;
+  dom.rebalanceBtn.disabled = false;
+  dom.normalizeBtn.disabled = false;
+  dom.yearDisplay.textContent = state.year.toString();
+  drawChart();
+  clearFinal();
+}
+
+/* ---------- Chart (simple line renderer) ---------- */
+function drawChart() {
+  const ctx = dom.chart.getContext('2d');
+  const w = dom.chart.width, h = dom.chart.height;
+  ctx.clearRect(0,0,w,h);
+
+  // Gather data
+  const values = [state.startBalance, ...state.history.map(h=>h.endBalance)];
+  const years = values.length - 1; // 0..years
+  const minV = Math.min(...values);
+  const maxV = Math.max(...values);
+  const padL = 45, padR = 10, padT = 10, padB = 26;
+
+  // Background grid
+  ctx.fillStyle = '#0b1030';
+  ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle = '#202653';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  const gridY = 4;
+  for (let i=0; i<=gridY; i++) {
+    const y = padT + (h-padT-padB)*i/gridY;
+    ctx.moveTo(padL, y); ctx.lineTo(w-padR, y);
+  }
+  ctx.stroke();
+
+  // Y-axis labels
+  ctx.fillStyle = '#9aa2c7';
+  ctx.font = '12px system-ui, sans-serif';
+  for (let i=0; i<=gridY; i++) {
+    const y = padT + (h-padT-padB)*i/gridY;
+    const val = maxV - (maxV - minV)*i/gridY;
+    ctx.fillText(fmt.format(val), 6, y+4);
   }
 
-  function setWeight(assetKey: string, w: number) {
-    const dec = { ...currentDecision };
-    const weights = { ...dec.weights };
-    weights[assetKey] = clamp(w, 0, 1);
-    const total = Object.values(weights).reduce((a, b) => a + b, 0);
-    // Auto normalise to sum 1 if slightly off
-    if (total !== 1) {
-      const keys = Object.keys(weights);
-      const scale = total === 0 ? 0 : 1 / total;
-      for (const k of keys) weights[k] = weights[k] * scale;
+  // Line path
+  if (values.length >= 1) {
+    const xStep = (w - padL - padR) / Math.max(1, years);
+    // Shadow
+    ctx.strokeStyle = 'rgba(124,156,255,0.35)';
+    ctx.lineWidth = 6;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const x = padL + xStep*(i===0?0:i-1);
+      const y = padT + (1 - (v - minV)/(maxV - minV || 1)) * (h-padT-padB);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // Main line
+    ctx.strokeStyle = '#7c9cff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const x = padL + xStep*(i===0?0:i-1);
+      const y = padT + (1 - (v - minV)/(maxV - minV || 1)) * (h-padT-padB);
+      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // Dots
+    ctx.fillStyle = '#6ce0c3';
+    values.forEach((v,i)=>{
+      const x = padL + xStep*(i===0?0:i-1);
+      const y = padT + (1 - (v - minV)/(maxV - minV || 1)) * (h-padT-padB);
+      ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+    });
+
+    // X labels
+    ctx.fillStyle = '#9aa2c7';
+    for (let i=0; i<=10; i++) {
+      const x = padL + (w - padL - padR) * (i/10);
+      const y = h - 8;
+      ctx.fillText('Y'+i, x-8, y);
     }
-    const next = [...history];
-    next[year - 1] = { ...dec, weights };
-    setHistory(next);
   }
-
-  function lockYear() {
-    if (year > 10) return;
-    const dec = history[year - 1];
-    // Draw returns for each asset
-    const realised: Record<string, number> = {};
-    for (const a of assets) {
-      // Cap extreme outcomes for pedagogy
-      const draw = clamp(normalDraw(a.mean, a.stdev, rng), -0.8, 1.5);
-      realised[a.key] = draw;
-    }
-    const pr = Object.entries(dec.weights).reduce((acc, [k, w]) => acc + w * (realised[k] ?? 0), 0);
-
-    // Update portfolio value
-    const prev = portfolioValues[portfolioValues.length - 1];
-    const nextVal = (prev + annualContribution) * (1 + pr);
-
-    const nextHistory = [...history];
-    nextHistory[year - 1] = {
-      ...dec,
-      realisedAssetReturns: realised,
-      portfolioReturn: pr,
-    };
-
-    // Prepare next year's decision (carry weights forward)
-    if (year < 10) {
-      nextHistory.push({ weights: { ...dec.weights } });
-    }
-
-    setHistory(nextHistory);
-    setPortfolioValues([...portfolioValues, nextVal]);
-    setYear(year + 1);
-  }
-
-  function undoYear() {
-    if (year <= 1) return;
-    const nh = [...history];
-    nh.pop();
-    setHistory(nh);
-    const pv = [...portfolioValues];
-    pv.pop();
-    setPortfolioValues(pv);
-    setYear(year - 1);
-  }
-
-  // Summary metrics
-  const realisedYears = history.filter((h) => h.portfolioReturn !== undefined).length;
-  const timeWeightedCAGR = realisedYears
-    ? Math.pow(
-        history
-          .slice(0, realisedYears)
-          .reduce((acc, h) => acc * (1 + (h.portfolioReturn ?? 0)), 1),
-        1 / realisedYears,
-      ) - 1
-    : 0;
-
-  const investedCapital = startingCapital + annualContribution * realisedYears;
-  const endingValue = portfolioValues[portfolioValues.length - 1];
-  const totalReturnOnInvested = realisedYears ? endingValue / investedCapital - 1 : 0;
-
-  // Table data for charts
-  const chartData = portfolioValues.map((v, i) => ({ year: i, value: Math.round(v) }));
-
-  const lastRealised = history[Math.max(0, year - 2)];
-
-  return (
-    <div className="w-full min-h-screen bg-gradient-to-b from-slate-50 to-white p-4 lg:p-8">
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Settings */}
-        <div className="space-y-6">
-          <Card className="shadow-sm rounded-2xl">
-            <CardContent className="p-5 space-y-4">
-              <div className="text-xl font-semibold">Game settings</div>
-              <div className="grid grid-cols-2 gap-3 items-end">
-                <div>
-                  <Label>Starting capital</Label>
-                  <Input
-                    type="number"
-                    value={startingCapital}
-                    onChange={(e) => setStartingCapital(parseFloat(e.target.value || "0"))}
-                  />
-                </div>
-                <div>
-                  <Label>Annual contribution</Label>
-                  <Input
-                    type="number"
-                    value={annualContribution}
-                    onChange={(e) => setAnnualContribution(parseFloat(e.target.value || "0"))}
-                  />
-                </div>
-                <div>
-                  <Label>Random seed</Label>
-                  <div className="flex gap-2">
-                    <Input type="number" value={seed} onChange={(e) => setSeed(parseInt(e.target.value || "0"))} />
-                    <Button variant="secondary" onClick={() => hardReset(Math.floor(Math.random() * 1e6))}>
-                      <Dice5 className="w-4 h-4 mr-1" /> New seed & reset
-                    </Button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={() => hardReset()}>
-                  <RotateCcw className="w-4 h-4 mr-1" /> Reset simulation
-                </Button>
-              </div>
-              <p className="text-sm text-slate-600">
-                Tip: Reset to change assumptions or seed; resetting brings you back to Year 1 with fresh outcomes.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm rounded-2xl">
-            <CardContent className="p-5 space-y-4">
-              <div className="text-xl font-semibold">Return assumptions (annual)</div>
-              <Tabs defaultValue="means">
-                <TabsList className="grid grid-cols-2 w-full">
-                  <TabsTrigger value="means">Means</TabsTrigger>
-                  <TabsTrigger value="vols">Volatility</TabsTrigger>
-                </TabsList>
-                <TabsContent value="means" className="space-y-4 mt-4">
-                  {assets.map((a, idx) => (
-                    <div key={a.key} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{a.name}</span>
-                        <span>{pct(a.mean)}</span>
-                      </div>
-                      <Slider
-                        value={[Math.round(a.mean * 1000)]}
-                        min={-20}
-                        max={20}
-                        step={1}
-                        onValueChange={([val]) => setAssetParam(idx, "mean", val / 1000)}
-                      />
-                    </div>
-                  ))}
-                </TabsContent>
-                <TabsContent value="vols" className="space-y-4 mt-4">
-                  {assets.map((a, idx) => (
-                    <div key={a.key} className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{a.name}</span>
-                        <span>{pct(a.stdev)}</span>
-                      </div>
-                      <Slider
-                        value={[Math.round(a.stdev * 1000)]}
-                        min={0}
-                        max={600}
-                        step={5}
-                        onValueChange={([val]) => setAssetParam(idx, "stdev", val / 1000)}
-                      />
-                    </div>
-                  ))}
-                </TabsContent>
-              </Tabs>
-              <p className="text-xs text-slate-500">
-                Educational defaults only. You can tune means/volatility to reflect your beliefs.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Middle Column: Decisions */}
-        <div className="space-y-6">
-          <Card className="shadow-sm rounded-2xl">
-            <CardContent className="p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-xl font-semibold">Year {Math.min(year, 10)} allocation</div>
-                <div className="text-sm text-slate-600">Weights must sum to 100%</div>
-              </div>
-
-              {assets.map((a) => {
-                const w = (currentDecision?.weights?.[a.key] ?? 0) * 100;
-                return (
-                  <div key={a.key} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">{a.name}</span>
-                      <span>{w.toFixed(0)}%</span>
-                    </div>
-                    <Slider
-                      value={[Math.round(w)]}
-                      min={0}
-                      max={100}
-                      step={1}
-                      onValueChange={([val]) => setWeight(a.key, val / 100)}
-                    />
-                  </div>
-                );
-              })}
-
-              <div className="flex gap-2 pt-2">
-                <Button onClick={lockYear} disabled={year > 10}>
-                  <Play className="w-4 h-4 mr-1" /> Lock Year {Math.min(year, 10)}
-                </Button>
-                <Button variant="secondary" onClick={undoYear} disabled={year <= 1}>
-                  <Undo2 className="w-4 h-4 mr-1" /> Undo last year
-                </Button>
-              </div>
-
-              {lastRealised?.portfolioReturn !== undefined && (
-                <div className="mt-2 rounded-xl bg-slate-50 p-3 text-sm">
-                  <div className="font-medium mb-1">Previous year outcome</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {assets.map((a) => (
-                      <div key={a.key} className="flex justify-between">
-                        <span>{a.name}</span>
-                        <span className={
-                          (lastRealised.realisedAssetReturns?.[a.key] ?? 0) >= 0 ? "text-emerald-700" : "text-rose-700"
-                        }>
-                          {pct(lastRealised.realisedAssetReturns?.[a.key] ?? 0)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-2 flex justify-between">
-                    <span>Portfolio return</span>
-                    <span className={
-                      (lastRealised.portfolioReturn ?? 0) >= 0 ? "text-emerald-700 font-semibold" : "text-rose-700 font-semibold"
-                    }>
-                      {pct(lastRealised.portfolioReturn ?? 0)}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm rounded-2xl">
-            <CardContent className="p-5 space-y-4">
-              <div className="text-xl font-semibold">Portfolio value</div>
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={chartData} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="year" label={{ value: "Year", position: "insideBottomRight", offset: -5 }} />
-                  <YAxis tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`)} />
-                  <Tooltip formatter={(v: any) => money(Number(v))} labelFormatter={(l) => `Year ${l}`} />
-                  <Legend />
-                  <Line type="monotone" dataKey="value" name="Value" dot />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column: Summary */}
-        <div className="space-y-6">
-          <Card className="shadow-sm rounded-2xl">
-            <CardContent className="p-5 space-y-3">
-              <div className="text-xl font-semibold">Summary</div>
-              <div className="grid grid-cols-1 gap-2 text-sm">
-                <div className="flex justify-between"><span>Years played</span><span>{realisedYears} / 10</span></div>
-                <div className="flex justify-between"><span>Starting capital</span><span>{money(startingCapital)}</span></div>
-                <div className="flex justify-between"><span>Total contributions</span><span>{money(annualContribution * realisedYears)}</span></div>
-                <div className="flex justify-between"><span>Ending value</span><span className="font-semibold">{money(endingValue)}</span></div>
-                <div className="flex justify-between"><span>Time‑weighted CAGR</span><span>{pct(timeWeightedCAGR)}</span></div>
-                <div className="flex justify-between"><span>Total return on invested</span><span>{pct(totalReturnOnInvested)}</span></div>
-              </div>
-              <p className="text-xs text-slate-600">
-                Time‑weighted CAGR compounds the annual portfolio returns you experienced, ignoring cash flows.
-                Total return on invested compares ending value to all money put in (start + contributions).
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm rounded-2xl">
-            <CardContent className="p-5 space-y-3">
-              <div className="text-xl font-semibold">Allocation history</div>
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart
-                  data={history.map((h, i) => ({
-                    year: i + 1,
-                    ...Object.fromEntries(assets.map((a) => [a.name, Math.round((h.weights[a.key] ?? 0) * 100)])),
-                  }))}
-                  margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="year" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip formatter={(v: any) => `${v}%`} labelFormatter={(l) => `Year ${l}`} />
-                  <Legend />
-                  {assets.map((a) => (
-                    <Bar key={a.key} dataKey={a.name} stackId="a" />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-              <p className="text-xs text-slate-600">Bars show your chosen weights each year.</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <div className="max-w-6xl mx-auto mt-6 text-xs text-slate-500">
-        Built for education. This toy model draws independent normal returns per asset each year and caps extremes for clarity. It is not investment advice.
-      </div>
-    </div>
-  );
 }
+
+/* ---------- Events ---------- */
+function bind() {
+  // Update labels on slider move
+  ['allocCash','allocBonds','allocStocks'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', updateAllocLabels);
+  });
+  dom.normalizeBtn.addEventListener('click', normalizeAlloc);
+  dom.rebalanceBtn.addEventListener('click', ()=>{
+    setAlloc(state.lastAlloc);
+  });
+
+  // Presets
+  document.querySelectorAll('.pill[data-preset]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const p = btn.getAttribute('data-preset');
+      const presets = {
+        cautious: {cash:70,bonds:25,stocks:5},
+        balanced: {cash:40,bonds:50,stocks:10},
+        growth: {cash:10,bonds:60,stocks:30},
+        allStocks: {cash:0,bonds:20,stocks:80},
+        allBonds: {cash:0,bonds:90,stocks:10},
+        allCash: {cash:100,bonds:0,stocks:0},
+      };
+      setAlloc(presets[p]);
+    });
+  });
+
+  dom.commitBtn.addEventListener('click', ()=>{
+    if (state.history.length >= 10) return;
+    drawYear();
+  });
+
+  dom.undoBtn.addEventListener('click', undoYear);
+  dom.resetBtn.addEventListener('click', init);
+
+  // lock seed/start after year 1 begins
+  dom.startBalance.addEventListener('change', ()=>{
+    if (state.year === 1 && state.history.length === 0) {
+      let sb = Math.max(0, Math.round(Number(dom.startBalance.value)||0));
+      state.startBalance = state.value = sb;
+      dom.kpiValue.textContent = fmt.format(state.value);
+      drawChart();
+    }
+  });
+  dom.seed.addEventListener('change', ()=>{
+    if (state.year === 1 && state.history.length === 0) {
+      init();
+    }
+  });
+
+  // Initialize allocation labels
+  updateAllocLabels();
+}
+bind();
+init();
+
+/* ---------- Pro Tips (because devs love comments) ----------
+- Want different markets? Tweak `params` means/SDs.
+- Want heavier tails? Swap normal draws for Student-t or clip extremes.
+- Prefer fixed return paths for learning? Pre-generate a 10-year sequence.
+- Deploy to GitHub Pages: commit as index.html → Settings → Pages → select branch.
+------------------------------------------------------------ */
+</script>
+</body>
+</html>
