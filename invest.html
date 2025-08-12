@@ -1,0 +1,409 @@
+import React, { useMemo, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, BarChart, Bar } from "recharts";
+import { RotateCcw, Dice5, Play, Undo2 } from "lucide-react";
+
+// ---------- Utilities ----------
+// Lightweight deterministic PRNG (Mulberry32)
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Box–Muller transform to draw from N(0,1)
+function randn(rng: () => number) {
+  let u = 0, v = 0;
+  while (u === 0) u = rng();
+  while (v === 0) v = rng();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+function normalDraw(mean: number, stdev: number, rng: () => number) {
+  return mean + stdev * randn(rng);
+}
+
+function clamp(x: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, x));
+}
+
+// Formatters
+const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
+const money = (x: number) =>
+  x.toLocaleString("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 0 });
+
+// ---------- Types ----------
+interface Asset {
+  key: string;
+  name: string;
+  mean: number; // annual mean return (decimal)
+  stdev: number; // annual volatility (decimal)
+}
+
+interface YearDecision {
+  weights: Record<string, number>; // weights by asset key, sum to 1
+  realisedAssetReturns?: Record<string, number>; // filled after locking year
+  portfolioReturn?: number; // filled after locking year
+}
+
+// ---------- Default assets ----------
+const defaultAssets: Asset[] = [
+  { key: "cash", name: "Cash", mean: 0.02, stdev: 0.01 },
+  { key: "bonds", name: "Bonds", mean: 0.04, stdev: 0.06 },
+  { key: "equities", name: "Equities", mean: 0.07, stdev: 0.18 },
+  { key: "alts", name: "Alternatives", mean: 0.06, stdev: 0.12 },
+];
+
+export default function TenYearInvestmentGame() {
+  // Settings
+  const [assets, setAssets] = useState<Asset[]>(defaultAssets);
+  const [startingCapital, setStartingCapital] = useState<number>(100_000);
+  const [annualContribution, setAnnualContribution] = useState<number>(10_000);
+  const [seed, setSeed] = useState<number>(2025);
+  const [year, setYear] = useState<number>(1); // 1..10
+  const [history, setHistory] = useState<YearDecision[]>(() => [
+    { weights: Object.fromEntries(assets.map((a) => [a.key, 0.25])) },
+  ]);
+  const [portfolioValues, setPortfolioValues] = useState<number[]>([startingCapital]);
+
+  // Derived
+  const rng = useMemo(() => mulberry32(seed), [seed]);
+  const currentDecision = history[year - 1];
+
+  // Reset when settings change materially (manual controls handle their own state)
+  function hardReset(newSeed?: number) {
+    const s = newSeed ?? seed;
+    setSeed(s);
+    setYear(1);
+    setHistory([{ weights: Object.fromEntries(assets.map((a) => [a.key, 0.25])) }]);
+    setPortfolioValues([startingCapital]);
+  }
+
+  function setAssetParam(idx: number, key: "mean" | "stdev", value: number) {
+    const next = [...assets];
+    // Guard rails
+    if (key === "stdev") value = clamp(value, 0, 0.6);
+    if (key === "mean") value = clamp(value, -0.2, 0.2);
+    next[idx] = { ...next[idx], [key]: value } as Asset;
+    setAssets(next);
+  }
+
+  function setWeight(assetKey: string, w: number) {
+    const dec = { ...currentDecision };
+    const weights = { ...dec.weights };
+    weights[assetKey] = clamp(w, 0, 1);
+    const total = Object.values(weights).reduce((a, b) => a + b, 0);
+    // Auto normalise to sum 1 if slightly off
+    if (total !== 1) {
+      const keys = Object.keys(weights);
+      const scale = total === 0 ? 0 : 1 / total;
+      for (const k of keys) weights[k] = weights[k] * scale;
+    }
+    const next = [...history];
+    next[year - 1] = { ...dec, weights };
+    setHistory(next);
+  }
+
+  function lockYear() {
+    if (year > 10) return;
+    const dec = history[year - 1];
+    // Draw returns for each asset
+    const realised: Record<string, number> = {};
+    for (const a of assets) {
+      // Cap extreme outcomes for pedagogy
+      const draw = clamp(normalDraw(a.mean, a.stdev, rng), -0.8, 1.5);
+      realised[a.key] = draw;
+    }
+    const pr = Object.entries(dec.weights).reduce((acc, [k, w]) => acc + w * (realised[k] ?? 0), 0);
+
+    // Update portfolio value
+    const prev = portfolioValues[portfolioValues.length - 1];
+    const nextVal = (prev + annualContribution) * (1 + pr);
+
+    const nextHistory = [...history];
+    nextHistory[year - 1] = {
+      ...dec,
+      realisedAssetReturns: realised,
+      portfolioReturn: pr,
+    };
+
+    // Prepare next year's decision (carry weights forward)
+    if (year < 10) {
+      nextHistory.push({ weights: { ...dec.weights } });
+    }
+
+    setHistory(nextHistory);
+    setPortfolioValues([...portfolioValues, nextVal]);
+    setYear(year + 1);
+  }
+
+  function undoYear() {
+    if (year <= 1) return;
+    const nh = [...history];
+    nh.pop();
+    setHistory(nh);
+    const pv = [...portfolioValues];
+    pv.pop();
+    setPortfolioValues(pv);
+    setYear(year - 1);
+  }
+
+  // Summary metrics
+  const realisedYears = history.filter((h) => h.portfolioReturn !== undefined).length;
+  const timeWeightedCAGR = realisedYears
+    ? Math.pow(
+        history
+          .slice(0, realisedYears)
+          .reduce((acc, h) => acc * (1 + (h.portfolioReturn ?? 0)), 1),
+        1 / realisedYears,
+      ) - 1
+    : 0;
+
+  const investedCapital = startingCapital + annualContribution * realisedYears;
+  const endingValue = portfolioValues[portfolioValues.length - 1];
+  const totalReturnOnInvested = realisedYears ? endingValue / investedCapital - 1 : 0;
+
+  // Table data for charts
+  const chartData = portfolioValues.map((v, i) => ({ year: i, value: Math.round(v) }));
+
+  const lastRealised = history[Math.max(0, year - 2)];
+
+  return (
+    <div className="w-full min-h-screen bg-gradient-to-b from-slate-50 to-white p-4 lg:p-8">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Settings */}
+        <div className="space-y-6">
+          <Card className="shadow-sm rounded-2xl">
+            <CardContent className="p-5 space-y-4">
+              <div className="text-xl font-semibold">Game settings</div>
+              <div className="grid grid-cols-2 gap-3 items-end">
+                <div>
+                  <Label>Starting capital</Label>
+                  <Input
+                    type="number"
+                    value={startingCapital}
+                    onChange={(e) => setStartingCapital(parseFloat(e.target.value || "0"))}
+                  />
+                </div>
+                <div>
+                  <Label>Annual contribution</Label>
+                  <Input
+                    type="number"
+                    value={annualContribution}
+                    onChange={(e) => setAnnualContribution(parseFloat(e.target.value || "0"))}
+                  />
+                </div>
+                <div>
+                  <Label>Random seed</Label>
+                  <div className="flex gap-2">
+                    <Input type="number" value={seed} onChange={(e) => setSeed(parseInt(e.target.value || "0"))} />
+                    <Button variant="secondary" onClick={() => hardReset(Math.floor(Math.random() * 1e6))}>
+                      <Dice5 className="w-4 h-4 mr-1" /> New seed & reset
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => hardReset()}>
+                  <RotateCcw className="w-4 h-4 mr-1" /> Reset simulation
+                </Button>
+              </div>
+              <p className="text-sm text-slate-600">
+                Tip: Reset to change assumptions or seed; resetting brings you back to Year 1 with fresh outcomes.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm rounded-2xl">
+            <CardContent className="p-5 space-y-4">
+              <div className="text-xl font-semibold">Return assumptions (annual)</div>
+              <Tabs defaultValue="means">
+                <TabsList className="grid grid-cols-2 w-full">
+                  <TabsTrigger value="means">Means</TabsTrigger>
+                  <TabsTrigger value="vols">Volatility</TabsTrigger>
+                </TabsList>
+                <TabsContent value="means" className="space-y-4 mt-4">
+                  {assets.map((a, idx) => (
+                    <div key={a.key} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{a.name}</span>
+                        <span>{pct(a.mean)}</span>
+                      </div>
+                      <Slider
+                        value={[Math.round(a.mean * 1000)]}
+                        min={-20}
+                        max={20}
+                        step={1}
+                        onValueChange={([val]) => setAssetParam(idx, "mean", val / 1000)}
+                      />
+                    </div>
+                  ))}
+                </TabsContent>
+                <TabsContent value="vols" className="space-y-4 mt-4">
+                  {assets.map((a, idx) => (
+                    <div key={a.key} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{a.name}</span>
+                        <span>{pct(a.stdev)}</span>
+                      </div>
+                      <Slider
+                        value={[Math.round(a.stdev * 1000)]}
+                        min={0}
+                        max={600}
+                        step={5}
+                        onValueChange={([val]) => setAssetParam(idx, "stdev", val / 1000)}
+                      />
+                    </div>
+                  ))}
+                </TabsContent>
+              </Tabs>
+              <p className="text-xs text-slate-500">
+                Educational defaults only. You can tune means/volatility to reflect your beliefs.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Middle Column: Decisions */}
+        <div className="space-y-6">
+          <Card className="shadow-sm rounded-2xl">
+            <CardContent className="p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xl font-semibold">Year {Math.min(year, 10)} allocation</div>
+                <div className="text-sm text-slate-600">Weights must sum to 100%</div>
+              </div>
+
+              {assets.map((a) => {
+                const w = (currentDecision?.weights?.[a.key] ?? 0) * 100;
+                return (
+                  <div key={a.key} className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">{a.name}</span>
+                      <span>{w.toFixed(0)}%</span>
+                    </div>
+                    <Slider
+                      value={[Math.round(w)]}
+                      min={0}
+                      max={100}
+                      step={1}
+                      onValueChange={([val]) => setWeight(a.key, val / 100)}
+                    />
+                  </div>
+                );
+              })}
+
+              <div className="flex gap-2 pt-2">
+                <Button onClick={lockYear} disabled={year > 10}>
+                  <Play className="w-4 h-4 mr-1" /> Lock Year {Math.min(year, 10)}
+                </Button>
+                <Button variant="secondary" onClick={undoYear} disabled={year <= 1}>
+                  <Undo2 className="w-4 h-4 mr-1" /> Undo last year
+                </Button>
+              </div>
+
+              {lastRealised?.portfolioReturn !== undefined && (
+                <div className="mt-2 rounded-xl bg-slate-50 p-3 text-sm">
+                  <div className="font-medium mb-1">Previous year outcome</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {assets.map((a) => (
+                      <div key={a.key} className="flex justify-between">
+                        <span>{a.name}</span>
+                        <span className={
+                          (lastRealised.realisedAssetReturns?.[a.key] ?? 0) >= 0 ? "text-emerald-700" : "text-rose-700"
+                        }>
+                          {pct(lastRealised.realisedAssetReturns?.[a.key] ?? 0)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-2 flex justify-between">
+                    <span>Portfolio return</span>
+                    <span className={
+                      (lastRealised.portfolioReturn ?? 0) >= 0 ? "text-emerald-700 font-semibold" : "text-rose-700 font-semibold"
+                    }>
+                      {pct(lastRealised.portfolioReturn ?? 0)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm rounded-2xl">
+            <CardContent className="p-5 space-y-4">
+              <div className="text-xl font-semibold">Portfolio value</div>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={chartData} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="year" label={{ value: "Year", position: "insideBottomRight", offset: -5 }} />
+                  <YAxis tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`)} />
+                  <Tooltip formatter={(v: any) => money(Number(v))} labelFormatter={(l) => `Year ${l}`} />
+                  <Legend />
+                  <Line type="monotone" dataKey="value" name="Value" dot />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Summary */}
+        <div className="space-y-6">
+          <Card className="shadow-sm rounded-2xl">
+            <CardContent className="p-5 space-y-3">
+              <div className="text-xl font-semibold">Summary</div>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <div className="flex justify-between"><span>Years played</span><span>{realisedYears} / 10</span></div>
+                <div className="flex justify-between"><span>Starting capital</span><span>{money(startingCapital)}</span></div>
+                <div className="flex justify-between"><span>Total contributions</span><span>{money(annualContribution * realisedYears)}</span></div>
+                <div className="flex justify-between"><span>Ending value</span><span className="font-semibold">{money(endingValue)}</span></div>
+                <div className="flex justify-between"><span>Time‑weighted CAGR</span><span>{pct(timeWeightedCAGR)}</span></div>
+                <div className="flex justify-between"><span>Total return on invested</span><span>{pct(totalReturnOnInvested)}</span></div>
+              </div>
+              <p className="text-xs text-slate-600">
+                Time‑weighted CAGR compounds the annual portfolio returns you experienced, ignoring cash flows.
+                Total return on invested compares ending value to all money put in (start + contributions).
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm rounded-2xl">
+            <CardContent className="p-5 space-y-3">
+              <div className="text-xl font-semibold">Allocation history</div>
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart
+                  data={history.map((h, i) => ({
+                    year: i + 1,
+                    ...Object.fromEntries(assets.map((a) => [a.name, Math.round((h.weights[a.key] ?? 0) * 100)])),
+                  }))}
+                  margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="year" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip formatter={(v: any) => `${v}%`} labelFormatter={(l) => `Year ${l}`} />
+                  <Legend />
+                  {assets.map((a) => (
+                    <Bar key={a.key} dataKey={a.name} stackId="a" />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+              <p className="text-xs text-slate-600">Bars show your chosen weights each year.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto mt-6 text-xs text-slate-500">
+        Built for education. This toy model draws independent normal returns per asset each year and caps extremes for clarity. It is not investment advice.
+      </div>
+    </div>
+  );
+}
