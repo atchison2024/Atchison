@@ -6,139 +6,180 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     Math.seed = 2025;
-    Math.seededRandom = function() {
-      var x = Math.sin(Math.seed++) * 10000;
+    Math.seededRandom = function () {
+      const x = Math.sin(Math.seed++) * 10000;
       return x - Math.floor(x);
     };
   </script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 20px;
-      background-color: #f9f9f9;
-    }
-    .top-section, .bottom-section {
-      width: 95%;
-      margin-bottom: 30px;
-    }
-    .flex-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin-top: 20px;
-      background-color: #ffffff;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
-      font-size: 0.9em;
-    }
-    th {
-      background-color: #e3f2fd;
-    }
-    canvas {
-      max-width: 300px;
-      margin: 20px;
-    }
-    .charts {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .chart-container {
-      text-align: center;
-    }
-    .info-box, .comparison-table {
-      margin-top: 20px;
-      background-color: #ffffff;
-      padding: 15px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    .comparison-table {
-      width: 100%;
-    }
-    .loan-selection {
-      margin-bottom: 20px;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f6f8; }
+    .container { max-width: 1400px; margin: auto; }
+    h2 { text-align: center; margin-bottom: 20px; }
+    .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+    select, input, button { padding: 6px; font-size: 0.9rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: right; }
+    th { background: #e3f2fd; }
+    .charts-metrics { display: flex; gap: 40px; margin-top: 30px; align-items: flex-start; }
+    canvas { max-width: 300px; }
+    .metrics table { width: 100%; border-collapse: collapse; background: white; }
+    .metrics th, .metrics td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+    .metrics th { background: #e3f2fd; }
   </style>
 </head>
 <body>
-<!-- Existing UI HTML -->
+<div class="container">
+  <h2>Portfolio Loan Analyzer</h2>
+
+  <div class="controls">
+    <select id="loanSelect" multiple size="5"></select>
+    <input type="number" id="allocationAmount" placeholder="Amount to invest ($)">
+    <input type="number" id="weekNumber" placeholder="Week to invest (0-156)">
+    <button onclick="allocateLoan()">Add Investment</button>
+    <input type="number" id="cashWeek" placeholder="Week (0-156)">
+    <input type="number" id="cashAmount" placeholder="New Cash ($)">
+    <button onclick="addNewCash()">Add Cash</button>
+    <button onclick="runSimulation()">RUN</button>
+  </div>
+
+  <table id="cashflowTable">
+    <thead>
+    <tr>
+      <th>Week</th>
+      <th>Cash Inflow ($)</th>
+      <th>Cash Outflow ($)</th>
+      <th>Fee ($)</th>
+      <th>Tax ($)</th>
+      <th>Available ($)</th>
+      <th>Invested ($)</th>
+      <th>Total Assets ($)</th>
+      <th>Loan Status</th>
+    </tr>
+    </thead>
+    <tbody id="cashflowBody"></tbody>
+  </table>
+
+  <div class="charts-metrics">
+    <div>
+      <h4>Regional Exposure</h4>
+      <canvas id="regionChart"></canvas>
+      <h4>Provider Exposure</h4>
+      <canvas id="providerChart"></canvas>
+    </div>
+    <div class="metrics">
+      <h4>Portfolio Metrics</h4>
+      <table>
+        <tr><th>Metric</th><th>Current</th><th>Post Allocation</th></tr>
+        <tr><td>Weighted LVR</td><td>61%</td><td id="newLVR">61%</td></tr>
+        <tr><td>Duration</td><td>2.5 yrs</td><td id="newDuration">2.6 yrs</td></tr>
+        <tr><td>Yield</td><td>6.7%</td><td id="newYield">6.9%</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
 
 <script>
-// Simulated loan book for maturity tracking
-const activeLoans = Array.from({ length: 30 }, (_, i) => ({
-  id: `Loan-${i + 1}`,
-  startWeek: 0,
-  duration: Math.floor(Math.seededRandom() * 100) + 30 // Between 30-130 weeks
-}));
+  const loanSelect = document.getElementById('loanSelect');
+  const allocations = [];
+  const newCash = {};
 
-function generateCashflowTable() {
-  const tbody = document.getElementById("cashflowBody");
-  tbody.innerHTML = "";
-  Math.seed = 2025;
-
-  const loanMaturities = Array(157).fill(0);
-  activeLoans.forEach(loan => {
-    const maturityWeek = loan.startWeek + loan.duration;
-    if (maturityWeek < loanMaturities.length) loanMaturities[maturityWeek]++;
+  const loans = Array.from({ length: 10 }, (_, i) => `Loan-${i + 1}`);
+  loans.forEach(loan => {
+    const opt = document.createElement('option');
+    opt.value = loan;
+    opt.textContent = loan;
+    loanSelect.appendChild(opt);
   });
 
-  for (let i = 0; i <= 156; i++) {
-    let inflow = 0;
-    let outflow = 0;
-    let fee = 0;
-    let tax = 0;
-    let available = 0;
-    let invested = 0;
-    let matured = loanMaturities[i] || 0;
-    let newLoans = allocations.filter(a => a.week === i).length;
-
-    if (i === 0) {
-      inflow = 1000000;
-    } else {
-      inflow = +(Math.seededRandom() * 25000).toFixed(2); // simulated coupon/redemption
-      fee = +(Math.seededRandom() * 3000).toFixed(2);
-      tax = +(Math.seededRandom() * 2500).toFixed(2);
-      outflow = fee + tax;
-      available = inflow - outflow;
-      if (available < 0) available = 0;
-      invested = +(available * 0.8).toFixed(2);
-    }
-
-    const added = allocations.filter(a => a.week === i);
-    for (let a of added) {
-      if (a.amount <= available) {
-        invested += a.amount;
-        available -= a.amount;
-      }
-    }
-
-    const totalAssets = available + invested;
-    const activeLoanCount = 30 - loanMaturities.slice(0, i + 1).reduce((a, b) => a + b, 0) + allocations.filter(a => a.week <= i).length;
-
-    const row = `<tr>
-      <td>Week ${i}</td>
-      <td>${inflow.toFixed(2)}</td>
-      <td>${outflow.toFixed(2)}</td>
-      <td>${fee.toFixed(2)}</td>
-      <td>${tax.toFixed(2)}</td>
-      <td>${available.toFixed(2)}</td>
-      <td>${invested.toFixed(2)}</td>
-      <td>${totalAssets.toFixed(2)}</td>
-      <td>${matured > 0 ? `${matured} matured` : ''}${newLoans > 0 ? (matured > 0 ? ", " : "") + `${newLoans} new` : ''} (${activeLoanCount} loans)</td>
-    </tr>`;
-    tbody.innerHTML += row;
+  function allocateLoan() {
+    const selected = Array.from(loanSelect.selectedOptions).map(o => o.value);
+    const amount = parseFloat(document.getElementById('allocationAmount').value);
+    const week = parseInt(document.getElementById('weekNumber').value);
+    selected.forEach(loan => allocations.push({ loan, amount, week }));
   }
-}
+
+  function addNewCash() {
+    const week = parseInt(document.getElementById('cashWeek').value);
+    const amount = parseFloat(document.getElementById('cashAmount').value);
+    newCash[week] = (newCash[week] || 0) + amount;
+  }
+
+  function runSimulation() {
+    Math.seed = 2025;
+    const tbody = document.getElementById('cashflowBody');
+    tbody.innerHTML = '';
+
+    const loanMaturities = Array(157).fill(0);
+    const initialLoans = Array.from({ length: 30 }, (_, i) => ({
+      id: `InitLoan-${i+1}`,
+      start: 0,
+      duration: Math.floor(Math.seededRandom() * 100) + 30
+    }));
+    initialLoans.forEach(l => {
+      const m = l.start + l.duration;
+      if (m <= 156) loanMaturities[m]++;
+    });
+
+    for (let week = 0; week <= 156; week++) {
+      let inflow = week === 0 ? 1000000 : +(Math.seededRandom() * 25000).toFixed(2);
+      inflow += newCash[week] || 0;
+      const fee = week === 0 ? 0 : +(Math.seededRandom() * 3000).toFixed(2);
+      const tax = week === 0 ? 0 : +(Math.seededRandom() * 2500).toFixed(2);
+      const outflow = fee + tax;
+      let available = week === 0 ? 0 : inflow - outflow;
+      available = Math.max(0, available);
+      let invested = week === 0 ? 0 : +(available * 0.8);
+
+      allocations.filter(a => a.week === week).forEach(a => {
+        if (a.amount <= available) {
+          invested += a.amount;
+          available -= a.amount;
+        }
+      });
+
+      const totalAssets = available + invested;
+      const matured = loanMaturities[week] || 0;
+      const newLoans = allocations.filter(a => a.week === week).length;
+      const activeLoanCount = 30 - loanMaturities.slice(0, week + 1).reduce((a,b) => a+b, 0) + allocations.filter(a => a.week <= week).length;
+      const loanStatus = `${matured ? matured + ' matured' : ''}${matured && newLoans ? ', ' : ''}${newLoans ? newLoans + ' new' : ''} (${activeLoanCount} loans)`;
+
+      tbody.innerHTML += `<tr>
+        <td>${week}</td>
+        <td>${inflow.toFixed(2)}</td>
+        <td>${outflow.toFixed(2)}</td>
+        <td>${fee.toFixed(2)}</td>
+        <td>${tax.toFixed(2)}</td>
+        <td>${available.toFixed(2)}</td>
+        <td>${invested.toFixed(2)}</td>
+        <td>${totalAssets.toFixed(2)}</td>
+        <td>${loanStatus}</td>
+      </tr>`;
+    }
+  }
+
+  new Chart(document.getElementById('regionChart'), {
+    type: 'pie',
+    data: {
+      labels: ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS'],
+      datasets: [{
+        data: [30, 25, 15, 10, 12, 8],
+        backgroundColor: ['#66bb6a', '#42a5f5', '#ffb74d', '#ab47bc', '#ef5350', '#26c6da']
+      }]
+    }
+  });
+
+  new Chart(document.getElementById('providerChart'), {
+    type: 'pie',
+    data: {
+      labels: ['Bank A', 'Lender B', 'Credit Union C', 'Non-bank D'],
+      datasets: [{
+        data: [40, 30, 20, 10],
+        backgroundColor: ['#5c6bc0', '#ff7043', '#26a69a', '#ec407a']
+      }]
+    }
+  });
+
+  runSimulation();
 </script>
 </body>
 </html>
