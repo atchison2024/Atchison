@@ -1,230 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Mortgage Selection Tool</title>
+  <meta charset="UTF-8">
+  <title>Loan Portfolio Analysis</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #f5f5f5;
-    }
-
-    h1 {
-      text-align: center;
-    }
-
-    .container {
-      display: flex;
-      gap: 20px;
-      margin-top: 20px;
-    }
-
-    .column {
-      flex: 1;
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .form-section {
-      margin-bottom: 25px;
-    }
-
-    label {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-    }
-
-    input, select {
-      width: 100%;
-      padding: 6px;
-      margin-top: 4px;
-      font-size: 14px;
-    }
-
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      font-size: 16px;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-
-    canvas {
-      margin-top: 30px;
-      background: #fff;
-      border-radius: 8px;
-      padding: 10px;
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .flex-container { display: flex; gap: 30px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: right; }
+    th { background-color: #f4f4f4; }
+    .sidebar { min-width: 300px; }
+    canvas { max-width: 100%; }
   </style>
 </head>
 <body>
+  <h1>Loan Portfolio Monitoring Tool</h1>
 
-  <h1>Mortgage Selection Tool</h1>
+  <!-- Dropdown to select loans -->
+  <label for="loanSelect">Select Loan:</label>
+  <select id="loanSelect">
+    <option value="">--Choose--</option>
+  </select>
 
-  <form id="mortgageForm">
-    <div class="container">
-      <!-- LEFT COLUMN -->
-      <div class="column">
-        <!-- Borrower Info -->
-        <div class="form-section">
-          <h2>Borrower Info</h2>
-          <label>Borrower Type: <input type="text" name="borrowerType" /></label>
-          <label>Borrower Experience (yrs): <input type="number" name="borrowerExperience" /></label>
-          <label>Developer Experience (yrs): <input type="number" name="developerExperience" /></label>
-          <label>Sponsors NTA ($): <input type="number" name="sponsorNTA" /></label>
-        </div>
-
-        <!-- Property Info -->
-        <div class="form-section">
-          <h2>Property Info</h2>
-          <label>Property Type: <input type="text" name="propertyType" /></label>
-          <label>Valuation Type:
-            <select name="valuationType">
-              <option value="asComplete">As Complete</option>
-              <option value="GRV">GRV</option>
-            </select>
-          </label>
-          <label>LVR (%): <input type="number" name="lvr" /></label>
-          <label>Geography Type: <input type="text" name="geographyType" /></label>
-        </div>
-
-        <!-- Zone/DA -->
-        <div class="form-section">
-          <h2>DA & Zone</h2>
-          <label>Zone DA:
-            <select name="zoneDA">
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-              <option value="pending">Pending</option>
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <!-- RIGHT COLUMN -->
-      <div class="column">
-        <!-- Loan Info -->
-        <div class="form-section">
-          <h2>Loan Details</h2>
-          <label>Pref Equity Included?
-            <select name="prefEquity">
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-          <label>Loan Purpose:
-            <select name="loanPurpose">
-              <option value="purchase">Purchase</option>
-              <option value="refinance">Refinance</option>
-            </select>
-          </label>
-          <label>Debt Coverage Ratio (DCR): <input type="number" step="0.01" name="dcr" /></label>
-          <label>ICR (Interest Coverage Ratio): <input type="number" step="0.01" name="icr" /></label>
-          <label>Loan Term (Years): <input type="number" name="loanTerm" value="5" /></label>
-          <label>Loan Amount ($): <input type="number" name="loanAmount" value="1000000" /></label>
-          <label>Interest Rate (%): <input type="number" step="0.01" name="interestRate" value="5" /></label>
-          <label>Interest Type:
-            <select name="interestType">
-              <option value="fixed">Fixed</option>
-              <option value="variable">Variable</option>
-            </select>
-          </label>
-          <label>Interest Payment:
-            <select name="interestPaymentType">
-              <option value="capitalised">Capitalised</option>
-              <option value="prepaid">Prepaid</option>
-            </select>
-          </label>
-        </div>
-
-        <!-- Security Info -->
-        <div class="form-section">
-          <h2>Security</h2>
-          <label>Primary Security Type: <input type="text" name="securityType" /></label>
-          <label>Security Docs Provided?
-            <select name="securityDocs">
-              <option value="yes">Yes</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-        </div>
-
-        <!-- Exit Strategy -->
-        <div class="form-section">
-          <h2>Exit Strategy</h2>
-          <label>First Exit: <input type="text" name="firstExit" /></label>
-          <label>Second Exit: <input type="text" name="secondExit" /></label>
-        </div>
-
-        <button type="button" onclick="calculatePerformance()">Calculate & Show Plot</button>
-      </div>
+  <div class="flex-container">
+    <!-- Table container -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Week</th>
+            <th>Cash Inflow</th>
+            <th>Cash Outflow</th>
+            <th>Fee Payment</th>
+            <th>Tax Payment</th>
+            <th>Available for Investment</th>
+            <th>Already Invested</th>
+          </tr>
+        </thead>
+        <tbody id="cashflowBody">
+          <!-- Data dynamically populated -->
+        </tbody>
+      </table>
     </div>
-  </form>
 
-  <canvas id="performanceChart" width="800" height="400"></canvas>
+    <!-- Sidebar for charts and metrics -->
+    <div class="sidebar">
+      <canvas id="regionPie"></canvas>
+      <canvas id="providerPie"></canvas>
+
+      <h3>Portfolio Stats</h3>
+      <ul>
+        <li><strong>Current Assets:</strong> $25,000,000</li>
+        <li><strong>Holdings:</strong> 30 Loans</li>
+        <li><strong>Weighted LVR:</strong> 65%</li>
+        <li><strong>Avg Duration:</strong> 4.2 years</li>
+        <li><strong>Portfolio Yield:</strong> 7.1%</li>
+      </ul>
+    </div>
+  </div>
 
   <script>
-    function calculatePerformance() {
-      const form = document.forms["mortgageForm"];
-      const loanTerm = parseInt(form["loanTerm"].value);
-      const loanAmount = parseFloat(form["loanAmount"].value);
-      const interestRate = parseFloat(form["interestRate"].value) / 100;
-      const paymentType = form["interestPaymentType"].value;
-
-      let yearlyBalances = [];
-      let balance = loanAmount;
-
-      for (let year = 1; year <= loanTerm; year++) {
-        if (paymentType === "capitalised") {
-          balance += balance * interestRate;
-        } // if prepaid, balance remains unchanged
-        yearlyBalances.push(parseFloat(balance.toFixed(2)));
-      }
-
-      drawChart(yearlyBalances);
+    // Populate dropdown with 100 dummy loans
+    const loanSelect = document.getElementById("loanSelect");
+    for (let i = 1; i <= 100; i++) {
+      const opt = document.createElement("option");
+      opt.value = `Loan${i}`;
+      opt.textContent = `Loan ${i}`;
+      loanSelect.appendChild(opt);
     }
 
-    function drawChart(data) {
-      const ctx = document.getElementById('performanceChart').getContext('2d');
-
-      if (window.myChart) {
-        window.myChart.destroy();
-      }
-
-      window.myChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: data.map((_, i) => `Year ${i + 1}`),
-          datasets: [{
-            label: 'Loan Balance Over Time',
-            data: data,
-            borderColor: '#007bff',
-            backgroundColor: 'rgba(0, 123, 255, 0.1)',
-            fill: true,
-            tension: 0.3
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            title: {
-              display: true,
-              text: 'Loan Performance to Maturity'
-            }
-          }
-        }
-      });
+    // Dummy cashflow table data for 156 weeks
+    const cashflowBody = document.getElementById("cashflowBody");
+    for (let w = 1; w <= 156; w++) {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>Week ${w}</td>
+        <td>${(Math.random() * 10000).toFixed(2)}</td>
+        <td>${(Math.random() * 8000).toFixed(2)}</td>
+        <td>${(Math.random() * 1000).toFixed(2)}</td>
+        <td>${(Math.random() * 1200).toFixed(2)}</td>
+        <td>${(Math.random() * 15000).toFixed(2)}</td>
+        <td>${(Math.random() * 10000).toFixed(2)}</td>
+      `;
+      cashflowBody.appendChild(row);
     }
+
+    // Dummy pie chart data
+    const regionCtx = document.getElementById('regionPie');
+    new Chart(regionCtx, {
+      type: 'pie',
+      data: {
+        labels: ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS'],
+        datasets: [{
+          data: [30, 25, 20, 10, 10, 5],
+          backgroundColor: ['#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#f44336', '#00bcd4']
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { title: { display: true, text: 'Regional Exposure' } }
+      }
+    });
+
+    const providerCtx = document.getElementById('providerPie');
+    new Chart(providerCtx, {
+      type: 'pie',
+      data: {
+        labels: ['Provider A', 'Provider B', 'Provider C', 'Provider D'],
+        datasets: [{
+          data: [40, 30, 20, 10],
+          backgroundColor: ['#3f51b5', '#009688', '#e91e63', '#ffc107']
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { title: { display: true, text: 'Provider Exposure' } }
+      }
+    });
   </script>
-
 </body>
 </html>
