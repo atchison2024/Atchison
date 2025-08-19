@@ -20,6 +20,7 @@
     .flex-row {
       display: flex;
       justify-content: space-between;
+      align-items: flex-start;
     }
     table {
       border-collapse: collapse;
@@ -42,7 +43,7 @@
     }
     .charts {
       display: flex;
-      justify-content: space-around;
+      flex-direction: column;
       align-items: center;
     }
     .chart-container {
@@ -54,6 +55,9 @@
       padding: 15px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
+    .comparison-table {
+      width: 100%;
+    }
     .loan-selection {
       margin-bottom: 20px;
     }
@@ -63,11 +67,17 @@
 
   <div class="top-section">
     <div class="loan-selection">
-      <label>Select a loan (max 10):</label>
-      <select id="loanSelect"></select>
+      <label>Select loan(s) (max 10):</label>
+      <select id="loanSelect" multiple size="5"></select>
       <input type="number" id="allocationAmount" placeholder="Amount to invest ($)">
-      <input type="number" id="weekNumber" placeholder="Week to invest (1-156)">
+      <input type="number" id="weekNumber" placeholder="Week to invest (0-156)">
       <button onclick="allocateLoan()">Add Investment</button>
+      <br><br>
+      <label>Add new cash at week:</label>
+      <input type="number" id="cashWeek" placeholder="Week (0-156)">
+      <input type="number" id="cashAmount" placeholder="Cash Amount ($)">
+      <button onclick="addNewCash()">Add Cash</button>
+      <br><br>
       <button onclick="runSimulation()">RUN</button>
     </div>
   </div>
@@ -85,10 +95,12 @@
             <th>Tax Payment ($)</th>
             <th>Available for Investment ($)</th>
             <th>Already Invested ($)</th>
+            <th>Total Assets ($)</th>
           </tr>
         </thead>
         <tbody id="cashflowBody"></tbody>
       </table>
+
       <div class="charts">
         <div class="chart-container">
           <h4>Regional Exposure</h4>
@@ -98,25 +110,24 @@
           <h4>Provider Exposure</h4>
           <canvas id="providerChart"></canvas>
         </div>
+        <div class="comparison-table">
+          <h4>Portfolio Metrics</h4>
+          <table>
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th>Current</th>
+                <th>After Allocation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Weighted LVR</td><td>61%</td><td id="newLVR">61%</td></tr>
+              <tr><td>Average Duration</td><td>2.5 years</td><td id="newDuration">2.5 years</td></tr>
+              <tr><td>Average Yield</td><td>6.7%</td><td id="newYield">6.7%</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-
-    <div class="comparison-table">
-      <h4>Portfolio Metrics</h4>
-      <table>
-        <thead>
-          <tr>
-            <th>Metric</th>
-            <th>Current</th>
-            <th>After Allocation</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>Weighted LVR</td><td>61%</td><td id="newLVR">61%</td></tr>
-          <tr><td>Average Duration</td><td>2.5 years</td><td id="newDuration">2.5 years</td></tr>
-          <tr><td>Average Yield</td><td>6.7%</td><td id="newYield">6.7%</td></tr>
-        </tbody>
-      </table>
     </div>
 
     <div class="info-box">
@@ -136,19 +147,35 @@
     });
 
     const allocations = [];
+    const newCash = {};
 
     function allocateLoan() {
-      const loan = loanSelect.value;
+      const selectedLoans = Array.from(loanSelect.selectedOptions).map(o => o.value);
       const amount = parseFloat(document.getElementById('allocationAmount').value);
       const week = parseInt(document.getElementById('weekNumber').value);
 
-      if (!loan || isNaN(amount) || isNaN(week) || week < 1 || week > 156) {
-        alert("Please enter valid loan, amount and week number");
+      if (selectedLoans.length === 0 || isNaN(amount) || isNaN(week) || week < 0 || week > 156) {
+        alert("Please enter valid selection, amount and week");
         return;
       }
 
-      allocations.push({loan, amount, week});
-      alert(`${loan} allocated $${amount} on week ${week}`);
+      selectedLoans.forEach(loan => {
+        allocations.push({loan, amount, week});
+        alert(`${loan} allocated $${amount} on week ${week}`);
+      });
+    }
+
+    function addNewCash() {
+      const week = parseInt(document.getElementById('cashWeek').value);
+      const amount = parseFloat(document.getElementById('cashAmount').value);
+
+      if (isNaN(week) || isNaN(amount) || week < 0 || week > 156) {
+        alert("Please enter a valid week and amount");
+        return;
+      }
+
+      newCash[week] = (newCash[week] || 0) + amount;
+      alert(`Added $${amount} new cash at week ${week}`);
     }
 
     function runSimulation() {
@@ -159,12 +186,15 @@
     function generateCashflowTable() {
       const tbody = document.getElementById("cashflowBody");
       tbody.innerHTML = "";
-      for (let i = 1; i <= 156; i++) {
-        let inflow = +(Math.random() * 100000).toFixed(2);
-        let outflow = +(Math.random() * 50000).toFixed(2);
+      for (let i = 0; i <= 156; i++) {
+        let inflow = i === 0 ? 12500000 : +(Math.random() * 100000).toFixed(2);
+        if (newCash[i]) inflow += newCash[i];
+
+        let outflow = i === 0 ? 0 : +(Math.random() * 50000).toFixed(2);
         let fee = +(inflow * 0.01).toFixed(2);
         let tax = +(inflow * 0.15).toFixed(2);
         let available = +(inflow - outflow - fee - tax).toFixed(2);
+        if (available < 0) available = 0;
         let invested = +(available * 0.8).toFixed(2);
 
         const added = allocations.filter(a => a.week === i);
@@ -177,6 +207,8 @@
           }
         }
 
+        const totalAssets = available + invested;
+
         const row = `<tr>
           <td>Week ${i}</td>
           <td>${inflow.toFixed(2)}</td>
@@ -185,6 +217,7 @@
           <td>${tax.toFixed(2)}</td>
           <td>${available.toFixed(2)}</td>
           <td>${invested.toFixed(2)}</td>
+          <td>${totalAssets.toFixed(2)}</td>
         </tr>`;
         tbody.innerHTML += row;
       }
@@ -229,7 +262,7 @@
       data: providerData
     });
 
-    generateCashflowTable();
+    runSimulation();
   </script>
 </body>
 </html>
