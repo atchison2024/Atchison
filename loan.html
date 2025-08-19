@@ -2,121 +2,150 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Loan Portfolio Analysis</title>
+  <title>Portfolio Loan Analyzer</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    .flex-container { display: flex; gap: 30px; }
-    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: right; }
-    th { background-color: #f4f4f4; }
-    .sidebar { min-width: 300px; }
-    canvas { max-width: 100%; }
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    .top-section, .bottom-section {
+      width: 95%;
+      margin-bottom: 30px;
+    }
+    .flex-row {
+      display: flex;
+      justify-content: space-between;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      font-size: 0.9em;
+    }
+    th {
+      background-color: #f0f0f0;
+    }
+    canvas {
+      max-width: 300px;
+      margin: 20px;
+    }
+    .charts {
+      display: flex;
+      justify-content: space-around;
+    }
+    .info-box {
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
-  <h1>Loan Portfolio Monitoring Tool</h1>
 
-  <!-- Dropdown to select loans -->
-  <label for="loanSelect">Select Loan:</label>
-  <select id="loanSelect">
-    <option value="">--Choose--</option>
-  </select>
+  <div class="top-section">
+    <label for="loanSelect">Select a loan to analyse (out of 100):</label>
+    <select id="loanSelect"></select>
+  </div>
 
-  <div class="flex-container">
-    <!-- Table container -->
-    <div class="table-container">
-      <table>
+  <div class="bottom-section">
+    <h3>Weekly Cash Flow (30 Loans)</h3>
+    <div class="flex-row">
+      <table id="cashflowTable">
         <thead>
           <tr>
             <th>Week</th>
-            <th>Cash Inflow</th>
-            <th>Cash Outflow</th>
-            <th>Fee Payment</th>
-            <th>Tax Payment</th>
-            <th>Available for Investment</th>
-            <th>Already Invested</th>
+            <th>Cash Inflow ($)</th>
+            <th>Cash Outflow ($)</th>
+            <th>Fee Payment ($)</th>
+            <th>Tax Payment ($)</th>
+            <th>Available for Investment ($)</th>
+            <th>Already Invested ($)</th>
           </tr>
         </thead>
-        <tbody id="cashflowBody">
-          <!-- Data dynamically populated -->
-        </tbody>
+        <tbody id="cashflowBody"></tbody>
       </table>
+      <div class="charts">
+        <canvas id="regionChart"></canvas>
+        <canvas id="providerChart"></canvas>
+      </div>
     </div>
-
-    <!-- Sidebar for charts and metrics -->
-    <div class="sidebar">
-      <canvas id="regionPie"></canvas>
-      <canvas id="providerPie"></canvas>
-
-      <h3>Portfolio Stats</h3>
-      <ul>
-        <li><strong>Current Assets:</strong> $25,000,000</li>
-        <li><strong>Holdings:</strong> 30 Loans</li>
-        <li><strong>Weighted LVR:</strong> 65%</li>
-        <li><strong>Avg Duration:</strong> 4.2 years</li>
-        <li><strong>Portfolio Yield:</strong> 7.1%</li>
-      </ul>
+    <div class="info-box">
+      <p><strong>Current Assets:</strong> $12,500,000</p>
+      <p><strong>Current Holdings:</strong> 30 Loans</p>
+      <p><strong>Weighted LVR:</strong> 61%</p>
+      <p><strong>Average Duration:</strong> 2.5 years</p>
+      <p><strong>Average Yield:</strong> 6.7%</p>
     </div>
   </div>
 
   <script>
-    // Populate dropdown with 100 dummy loans
-    const loanSelect = document.getElementById("loanSelect");
-    for (let i = 1; i <= 100; i++) {
-      const opt = document.createElement("option");
-      opt.value = `Loan${i}`;
-      opt.textContent = `Loan ${i}`;
+    // Sample 100 loans
+    const loans = Array.from({length: 100}, (_, i) => `Loan-${i + 1}`);
+    const loanSelect = document.getElementById('loanSelect');
+    loans.forEach(loan => {
+      const opt = document.createElement('option');
+      opt.value = loan;
+      opt.textContent = loan;
       loanSelect.appendChild(opt);
-    }
-
-    // Dummy cashflow table data for 156 weeks
-    const cashflowBody = document.getElementById("cashflowBody");
-    for (let w = 1; w <= 156; w++) {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>Week ${w}</td>
-        <td>${(Math.random() * 10000).toFixed(2)}</td>
-        <td>${(Math.random() * 8000).toFixed(2)}</td>
-        <td>${(Math.random() * 1000).toFixed(2)}</td>
-        <td>${(Math.random() * 1200).toFixed(2)}</td>
-        <td>${(Math.random() * 15000).toFixed(2)}</td>
-        <td>${(Math.random() * 10000).toFixed(2)}</td>
-      `;
-      cashflowBody.appendChild(row);
-    }
-
-    // Dummy pie chart data
-    const regionCtx = document.getElementById('regionPie');
-    new Chart(regionCtx, {
-      type: 'pie',
-      data: {
-        labels: ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS'],
-        datasets: [{
-          data: [30, 25, 20, 10, 10, 5],
-          backgroundColor: ['#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#f44336', '#00bcd4']
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { title: { display: true, text: 'Regional Exposure' } }
-      }
     });
 
-    const providerCtx = document.getElementById('providerPie');
-    new Chart(providerCtx, {
+    // Generate cash flow table for 156 weeks (3 years)
+    const tbody = document.getElementById("cashflowBody");
+    for (let i = 1; i <= 156; i++) {
+      const inflow = +(Math.random() * 100000).toFixed(2);
+      const outflow = +(Math.random() * 50000).toFixed(2);
+      const fee = +(inflow * 0.01).toFixed(2);
+      const tax = +(inflow * 0.15).toFixed(2);
+      const available = +(inflow - outflow - fee - tax).toFixed(2);
+      const invested = +(available * 0.8).toFixed(2);
+
+      const row = `<tr>
+        <td>Week ${i}</td>
+        <td>${inflow}</td>
+        <td>${outflow}</td>
+        <td>${fee}</td>
+        <td>${tax}</td>
+        <td>${available}</td>
+        <td>${invested}</td>
+      </tr>`;
+      tbody.innerHTML += row;
+    }
+
+    // Sample pie chart data
+    const regionData = {
+      labels: ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS'],
+      datasets: [{
+        label: 'Region Exposure',
+        data: [30, 25, 15, 10, 12, 8],
+        backgroundColor: [
+          '#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#f44336', '#00bcd4'
+        ]
+      }]
+    };
+
+    const providerData = {
+      labels: ['Bank A', 'Lender B', 'Credit Union C', 'Non-bank D'],
+      datasets: [{
+        label: 'Provider Exposure',
+        data: [40, 30, 20, 10],
+        backgroundColor: ['#3f51b5', '#ff5722', '#009688', '#e91e63']
+      }]
+    };
+
+    new Chart(document.getElementById('regionChart'), {
       type: 'pie',
-      data: {
-        labels: ['Provider A', 'Provider B', 'Provider C', 'Provider D'],
-        datasets: [{
-          data: [40, 30, 20, 10],
-          backgroundColor: ['#3f51b5', '#009688', '#e91e63', '#ffc107']
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { title: { display: true, text: 'Provider Exposure' } }
-      }
+      data: regionData
+    });
+
+    new Chart(document.getElementById('providerChart'), {
+      type: 'pie',
+      data: providerData
     });
   </script>
 </body>
