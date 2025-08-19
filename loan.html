@@ -11,6 +11,7 @@
       flex-direction: column;
       align-items: center;
       padding: 20px;
+      background-color: #f9f9f9;
     }
     .top-section, .bottom-section {
       width: 95%;
@@ -24,14 +25,16 @@
       border-collapse: collapse;
       width: 100%;
       margin-top: 20px;
+      background-color: #ffffff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
     th, td {
-      border: 1px solid #ccc;
-      padding: 6px;
+      border: 1px solid #ddd;
+      padding: 8px;
       font-size: 0.9em;
     }
     th {
-      background-color: #f0f0f0;
+      background-color: #e3f2fd;
     }
     canvas {
       max-width: 300px;
@@ -40,17 +43,33 @@
     .charts {
       display: flex;
       justify-content: space-around;
+      align-items: center;
     }
-    .info-box {
+    .chart-container {
+      text-align: center;
+    }
+    .info-box, .comparison-table {
       margin-top: 20px;
+      background-color: #ffffff;
+      padding: 15px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .loan-selection {
+      margin-bottom: 20px;
     }
   </style>
 </head>
 <body>
 
   <div class="top-section">
-    <label for="loanSelect">Select a loan to analyse (out of 100):</label>
-    <select id="loanSelect"></select>
+    <div class="loan-selection">
+      <label>Select a loan (max 10):</label>
+      <select id="loanSelect"></select>
+      <input type="number" id="allocationAmount" placeholder="Amount to invest ($)">
+      <input type="number" id="weekNumber" placeholder="Week to invest (1-156)">
+      <button onclick="allocateLoan()">Add Investment</button>
+      <button onclick="runSimulation()">RUN</button>
+    </div>
   </div>
 
   <div class="bottom-section">
@@ -71,23 +90,44 @@
         <tbody id="cashflowBody"></tbody>
       </table>
       <div class="charts">
-        <canvas id="regionChart"></canvas>
-        <canvas id="providerChart"></canvas>
+        <div class="chart-container">
+          <h4>Regional Exposure</h4>
+          <canvas id="regionChart"></canvas>
+        </div>
+        <div class="chart-container">
+          <h4>Provider Exposure</h4>
+          <canvas id="providerChart"></canvas>
+        </div>
       </div>
     </div>
+
+    <div class="comparison-table">
+      <h4>Portfolio Metrics</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Current</th>
+            <th>After Allocation</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Weighted LVR</td><td>61%</td><td id="newLVR">61%</td></tr>
+          <tr><td>Average Duration</td><td>2.5 years</td><td id="newDuration">2.5 years</td></tr>
+          <tr><td>Average Yield</td><td>6.7%</td><td id="newYield">6.7%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
     <div class="info-box">
       <p><strong>Current Assets:</strong> $12,500,000</p>
       <p><strong>Current Holdings:</strong> 30 Loans</p>
-      <p><strong>Weighted LVR:</strong> 61%</p>
-      <p><strong>Average Duration:</strong> 2.5 years</p>
-      <p><strong>Average Yield:</strong> 6.7%</p>
     </div>
   </div>
 
   <script>
-    // Sample 100 loans
-    const loans = Array.from({length: 100}, (_, i) => `Loan-${i + 1}`);
     const loanSelect = document.getElementById('loanSelect');
+    const loans = Array.from({length: 10}, (_, i) => `Loan-${i + 1}`);
     loans.forEach(loan => {
       const opt = document.createElement('option');
       opt.value = loan;
@@ -95,36 +135,77 @@
       loanSelect.appendChild(opt);
     });
 
-    // Generate cash flow table for 156 weeks (3 years)
-    const tbody = document.getElementById("cashflowBody");
-    for (let i = 1; i <= 156; i++) {
-      const inflow = +(Math.random() * 100000).toFixed(2);
-      const outflow = +(Math.random() * 50000).toFixed(2);
-      const fee = +(inflow * 0.01).toFixed(2);
-      const tax = +(inflow * 0.15).toFixed(2);
-      const available = +(inflow - outflow - fee - tax).toFixed(2);
-      const invested = +(available * 0.8).toFixed(2);
+    const allocations = [];
 
-      const row = `<tr>
-        <td>Week ${i}</td>
-        <td>${inflow}</td>
-        <td>${outflow}</td>
-        <td>${fee}</td>
-        <td>${tax}</td>
-        <td>${available}</td>
-        <td>${invested}</td>
-      </tr>`;
-      tbody.innerHTML += row;
+    function allocateLoan() {
+      const loan = loanSelect.value;
+      const amount = parseFloat(document.getElementById('allocationAmount').value);
+      const week = parseInt(document.getElementById('weekNumber').value);
+
+      if (!loan || isNaN(amount) || isNaN(week) || week < 1 || week > 156) {
+        alert("Please enter valid loan, amount and week number");
+        return;
+      }
+
+      allocations.push({loan, amount, week});
+      alert(`${loan} allocated $${amount} on week ${week}`);
     }
 
-    // Sample pie chart data
+    function runSimulation() {
+      generateCashflowTable();
+      updateMetrics();
+    }
+
+    function generateCashflowTable() {
+      const tbody = document.getElementById("cashflowBody");
+      tbody.innerHTML = "";
+      for (let i = 1; i <= 156; i++) {
+        let inflow = +(Math.random() * 100000).toFixed(2);
+        let outflow = +(Math.random() * 50000).toFixed(2);
+        let fee = +(inflow * 0.01).toFixed(2);
+        let tax = +(inflow * 0.15).toFixed(2);
+        let available = +(inflow - outflow - fee - tax).toFixed(2);
+        let invested = +(available * 0.8).toFixed(2);
+
+        const added = allocations.filter(a => a.week === i);
+        for (let a of added) {
+          if (a.amount <= available) {
+            invested += a.amount;
+            available -= a.amount;
+          } else {
+            alert(`Insufficient funds at week ${i} to invest $${a.amount} in ${a.loan}`);
+          }
+        }
+
+        const row = `<tr>
+          <td>Week ${i}</td>
+          <td>${inflow.toFixed(2)}</td>
+          <td>${outflow.toFixed(2)}</td>
+          <td>${fee.toFixed(2)}</td>
+          <td>${tax.toFixed(2)}</td>
+          <td>${available.toFixed(2)}</td>
+          <td>${invested.toFixed(2)}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+      }
+    }
+
+    function updateMetrics() {
+      const newLVR = '59.8%';
+      const newDuration = '2.6 years';
+      const newYield = '6.9%';
+      document.getElementById("newLVR").textContent = newLVR;
+      document.getElementById("newDuration").textContent = newDuration;
+      document.getElementById("newYield").textContent = newYield;
+    }
+
     const regionData = {
       labels: ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS'],
       datasets: [{
         label: 'Region Exposure',
         data: [30, 25, 15, 10, 12, 8],
         backgroundColor: [
-          '#4caf50', '#2196f3', '#ff9800', '#9c27b0', '#f44336', '#00bcd4'
+          '#66bb6a', '#42a5f5', '#ffb74d', '#ab47bc', '#ef5350', '#26c6da'
         ]
       }]
     };
@@ -134,7 +215,7 @@
       datasets: [{
         label: 'Provider Exposure',
         data: [40, 30, 20, 10],
-        backgroundColor: ['#3f51b5', '#ff5722', '#009688', '#e91e63']
+        backgroundColor: ['#5c6bc0', '#ff7043', '#26a69a', '#ec407a']
       }]
     };
 
@@ -147,6 +228,8 @@
       type: 'pie',
       data: providerData
     });
+
+    generateCashflowTable();
   </script>
 </body>
 </html>
